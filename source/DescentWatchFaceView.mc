@@ -35,8 +35,60 @@ class DescentWatchFaceView extends WatchUi.WatchFace {
         var clockTime = System.getClockTime();
         var now       = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
 
+        _drawBattery(dc);
         _drawTime(dc, clockTime);
         _drawDate(dc, now);
+    }
+
+    private function _drawBattery(dc as Dc) as Void {
+        var stats = System.getSystemStats();
+        var pct   = stats.battery.toNumber();
+
+        var iconColor = Graphics.COLOR_GREEN;
+        if (pct < 10) {
+            iconColor = Graphics.COLOR_RED;
+        } else if (pct < 30) {
+            iconColor = Graphics.COLOR_YELLOW;
+        }
+
+        var pctStr    = pct + "%";
+        var textWidth = dc.getTextWidthInPixels(pctStr, Graphics.FONT_XTINY);
+
+        // Battery icon dimensions
+        var bodyH = dc.getFontHeight(Graphics.FONT_XTINY) * 2 / 3;
+        var bodyW = 44;
+        var termW = 3;
+        var termH = bodyH / 2;
+        var gap   = 5;
+        var rowY  = 30;
+
+        // Center icon + gap + text as a group
+        var totalW = bodyW + termW + gap + textWidth;
+        var iconX  = _centerX - totalW / 2;
+        var iconY  = rowY - bodyH / 2;
+
+        // Battery body outline
+        dc.setColor(iconColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawRectangle(iconX, iconY, bodyW, bodyH);
+
+        // Battery terminal (right side)
+        dc.fillRectangle(iconX + bodyW, rowY - termH / 2, termW, termH);
+
+        // Battery fill (inside body)
+        var fillW = ((bodyW - 4) * pct / 100).toNumber();
+        if (fillW > 0) {
+            dc.fillRectangle(iconX + 2, iconY + 2, fillW, bodyH - 4);
+        }
+
+        // Percentage text — fixed white color
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(
+            iconX + bodyW + termW + gap,
+            rowY,
+            Graphics.FONT_XTINY,
+            pctStr,
+            Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER
+        );
     }
 
     private function _drawTime(dc as Dc, clockTime as System.ClockTime) as Void {
