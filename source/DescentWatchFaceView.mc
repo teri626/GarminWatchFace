@@ -1,4 +1,7 @@
+import Toybox.Activity;
+import Toybox.ActivityMonitor;
 import Toybox.Graphics;
+import Toybox.SensorHistory;
 import Toybox.Lang;
 import Toybox.System;
 import Toybox.Time;
@@ -49,6 +52,8 @@ class DescentWatchFaceView extends WatchUi.WatchFace {
 
         _drawZoneDividers(dc);
         _drawBattery(dc);
+        _drawTemperature(dc);
+        _drawSteps(dc);
         _drawTime(dc, clockTime);
         _drawDate(dc, now);
         _drawDayOfWeek(dc, now);
@@ -71,6 +76,74 @@ class DescentWatchFaceView extends WatchUi.WatchFace {
         var z2Bot = _screenHeight * 30 / 100;
         dc.drawLine(143, z2Top, 143, z2Bot);
         dc.drawLine(213, z2Top, 213, z2Bot);
+    }
+
+    private function _drawTemperature(dc as Dc) as Void {
+        // Use SensorHistory for wrist ambient temperature (Celsius, from onboard sensor).
+        // Falls back silently if sensor data is unavailable.
+        var temp = null;
+        if (Toybox has :SensorHistory && SensorHistory has :getTemperatureHistory) {
+            var iter = SensorHistory.getTemperatureHistory({:period => 1});
+            if (iter != null) {
+                var sample = iter.next();
+                if (sample != null) { temp = sample.data; }
+            }
+        }
+        if (temp == null) { return; }
+
+        var rowY    = 64;
+        var chnFont = _chineseFont != null ? _chineseFont : Graphics.FONT_XTINY;
+        var sysFont = Graphics.FONT_XTINY;
+        var tempStr = (temp as Float).format("%.0f");
+        var icon    = WatchUi.loadResource(Rez.Drawables.Thermometer) as Graphics.BitmapReference;
+        var iconW   = icon.getWidth();
+        var iconH   = icon.getHeight();
+        var gap     = 4;
+
+        // Layout: [icon] 温度 [value] °C, centered on left half of zone 1 (x≈110)
+        var wWenDu = dc.getTextWidthInPixels("温度",  chnFont);
+        var wVal   = dc.getTextWidthInPixels(tempStr, sysFont);
+        var wDegC  = dc.getTextWidthInPixels("°C",    sysFont);
+        var total  = iconW + gap + wWenDu + gap + wVal + wDegC;
+        var x      = 110 - total / 2;
+
+        dc.drawBitmap(x, rowY - iconH / 2, icon);
+        x += iconW + gap;
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, rowY, chnFont, "温度", Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        x += wWenDu + gap;
+        dc.drawText(x, rowY, sysFont, tempStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        x += wVal;
+        dc.drawText(x, rowY, sysFont, "°C",    Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    private function _drawSteps(dc as Dc) as Void {
+        // Daily step count comes from ActivityMonitor (pedometer/health tracking),
+        // not Activity (workout tracking). Activity.getActivityInfo().steps is for
+        // the current workout session only.
+        var steps = 0;
+        var info  = ActivityMonitor.getInfo();
+        if (info != null && info.steps != null) {
+            steps = info.steps;
+        }
+
+        var rowY     = 64;
+        var sysFont  = Graphics.FONT_XTINY;
+        var stepsStr = (steps as Number).toString();
+        var icon     = WatchUi.loadResource(Rez.Drawables.StepsIcon) as Graphics.BitmapReference;
+        var iconW    = icon.getWidth();
+        var iconH    = icon.getHeight();
+        var gap      = 4;
+
+        // Layout: [icon] [count], centered on right half of zone 1 (x≈270)
+        var wSteps = dc.getTextWidthInPixels(stepsStr, sysFont);
+        var total  = iconW + gap + wSteps;
+        var x      = 270 - total / 2;
+
+        dc.drawBitmap(x, rowY - iconH / 2, icon);
+        x += iconW + gap;
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, rowY, sysFont, stepsStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function _drawBattery(dc as Dc) as Void {
