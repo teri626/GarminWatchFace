@@ -1,0 +1,12 @@
+# Developer signing keys
+developer_key.der
+developer_key.pem
+
+# Build output
+bin/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
